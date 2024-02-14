@@ -40,7 +40,6 @@ int main(){
 
     if (random_data != NULL){
 
-
         int sock = -1;
         struct  sockaddr_in server;
         memset(&server, 0, sizeof(server));
@@ -77,9 +76,14 @@ int main(){
             } while(scanf(" %d", &user_choice) != 1);
         }
 
+        char exit_message = 'E';
+        if (send(sock, &exit_message, sizeof(exit_message), 0) < 0){
+                perror("Send failed");
+                return 1;
+        }
         close(sock);
         free(random_data);
-
+        
     }
 
     return 0;
