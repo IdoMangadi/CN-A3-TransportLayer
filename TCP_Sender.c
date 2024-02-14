@@ -40,6 +40,7 @@ int main(){
 
     if (random_data != NULL){
 
+        //Creating the socket:
         int sock = -1;
         struct  sockaddr_in server;
         memset(&server, 0, sizeof(server));
@@ -58,11 +59,13 @@ int main(){
         server.sin_family = AF_INET;
         server.sin_port = htons(SERVER_PORT);
 
+        // Connecting to the Receiver socket:
         if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0){
             perror("Connection failed");
             return 1;
         }
 
+        
         int user_choice = 1;
         while(user_choice){
             // Sending the file:
@@ -83,7 +86,7 @@ int main(){
         }
         close(sock);
         free(random_data);
-        
+
     }
 
     return 0;
