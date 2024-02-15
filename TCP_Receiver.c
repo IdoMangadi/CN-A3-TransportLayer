@@ -5,18 +5,19 @@
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
-
+#include <stdlib.h>
 
 #define SERVER_PORT 9998
 #define BUFFER_SIZE 3 * 1024 * 1024
 
 int main(){
 
-    printf("Starting receiver...");
+    printf("Starting receiver...\n");
 
     int sock = -1;  // Holding the socket file descriptor
     struct sockaddr_in server;  // Holding the server details
     struct sockaddr_in client;  // Holding the client details
+    socklen_t client_len = sizeof(client);
     memset(&server, 0, sizeof(server));
     memset(&client, 0, sizeof(client));
 
@@ -32,7 +33,7 @@ int main(){
     server.sin_family = AF_INET;
     server.sin_port = htons(SERVER_PORT);
 
-    if (bind(sock, (struct sock_addr*)&server, sizeof(server)) < 0){
+    if (bind(sock, (struct sockaddr*)&server, sizeof(server)) < 0){
         perror("Error occured whlie binding");
         return 1;
     }
@@ -42,13 +43,13 @@ int main(){
         return 1;
     }
 
-    printf("Waiting TCP connection...");
+    printf("Waiting TCP connection...\n");
 
     double *time_taken_array = NULL;
     size_t num_times = 0;
 
     // Accepting a TCP connection:
-    int client_sock = accept(sock, (struct sockaddr *)&client, (socklen_t*)&client);
+    int client_sock = accept(sock, (struct sockaddr *)&client, &client_len);
     if (client_sock < 0){
         perror("Error occured whlie accepting");
         return 1;
@@ -64,9 +65,9 @@ int main(){
         struct timeval start_time, end_time;
         gettimeofday(&start_time, NULL);
 
-        printf("Starting to receive file from Sender");
+        printf("Starting to receive file from Sender\n");
 
-        int read_size = read(client_sock, buffer, 1024);
+        int read_size = read(client_sock, buffer, BUFFER_SIZE);
 
         // End of measuring:
         gettimeofday(&end_time, NULL);
@@ -80,10 +81,10 @@ int main(){
             close(client_sock);
             break;
         }
-        printf("File transfer completed.");
+        printf("File transfer completed.\n");
 
         if(buffer[0] == 'E'){
-            printf("Sender sent exit message.");
+            printf("Sender sent exit message.\n");
             close(client_sock);
             break;
         }
@@ -102,21 +103,21 @@ int main(){
     }
 
     // Printing:
-    printf("----------------------------");
-    printf("-      *Statistics*         ");
+    printf("----------------------------\n");
+    printf("-      *Statistics*        -\n");
     double times_sum = 0;
     double speeds_sum = 0;
     for (int i=0; i<num_times; i++){
-        double speed = (3*1024*1024) * time_taken_array[i];
+        double speed = (3.0 * 1024 * 1024) / (time_taken_array[i] / 1000.0);
         speeds_sum += speed;
-        printf("- Run #%d:  Time=%fms; Speed=%f MB/s", i, time_taken_array[i], speed);
+        printf("- Run #%d:  Time=%fms; Speed=%f MB/s\n", i, time_taken_array[i], speed);
         times_sum += time_taken_array[i];
     }
 
-    printf("- Average time: %fms", times_sum/num_times);
-    printf("- Average bandwidth: %fMB/s", speeds_sum/num_times);
-    printf("----------------------------");
-    printf("Receiver end.");
+    printf("- Average time: %fms\n", times_sum/num_times);
+    printf("- Average bandwidth: %fMB/s\n", speeds_sum/num_times);
+    printf("----------------------------\n");
+    printf("Receiver end.\n");
 
     free(time_taken_array);
 
