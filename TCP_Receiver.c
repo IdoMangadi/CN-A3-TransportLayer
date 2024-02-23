@@ -6,6 +6,8 @@
 #include <time.h>
 #include <sys/time.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 #define SERVER_PORT 9998
 #define BUFFER_SIZE 3 * 1024 * 1024
@@ -33,20 +35,29 @@ int main(){
     server.sin_family = AF_INET;
     server.sin_port = htons(SERVER_PORT);
 
+    // Binding:
     if (bind(sock, (struct sockaddr*)&server, sizeof(server)) < 0){
         perror("Error occured whlie binding");
         return 1;
     }
-
+    // Listening:
     if (listen(sock, 1) < 0){
         perror("Error occured whlie listening");
         return 1;
     }
 
-    printf("Waiting TCP connection...\n");
+    printf("Waiting for TCP connection...\n");
 
+    // Creating space in memory to sava the measured times:
     double *time_taken_array = NULL;
     size_t num_times = 0;
+
+    // File handling:
+    int file_fd = open("received_file.txt", O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if(file_fd < 0){
+        perror("Error occured whlie opening file");
+        return 1;
+    }
 
     // Accepting a TCP connection:
     int client_sock = accept(sock, (struct sockaddr *)&client, &client_len);
@@ -55,52 +66,50 @@ int main(){
         return 1;
     }
     fprintf(stdout, "Client %s:%d connected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-
+    
     // Reading file from the sender:
     while(1){
 
         char buffer[BUFFER_SIZE] = {0};
 
+        printf("Starting to receive file from Sender\n");
+
         // Starting time measuring:
         struct timeval start_time, end_time;
         gettimeofday(&start_time, NULL);
 
-        printf("Starting to receive file from Sender\n");
+        size_t bytes_received;
 
-        int read_size = read(client_sock, buffer, BUFFER_SIZE);
+        // The receive part:
+        if(recv(client_sock, buffer, BUFFER_SIZE, 0) >= 0){
+            break;
+        }
+        if(buffer[0] == 'E'){
+            printf("Sender sent exit message.\n");
+            close(file_fd);
+            break;
+        }
+        write(file_fd, buffer, BUFFER_SIZE);
+    
 
         // End of measuring:
         gettimeofday(&end_time, NULL);
 
-        if (read_size < 0){
-            perror("Error occured whlie reading from client");
-            return 1;
-        }
-        else if (read_size == 0){  // Means user disconnect
-            fprintf(stdout, "Client %s:%d disconnected\n", inet_ntoa(client.sin_addr), ntohs(client.sin_port));
-            close(client_sock);
-            break;
-        }
         printf("File transfer completed.\n");
 
-        if(buffer[0] == 'E'){
-            printf("Sender sent exit message.\n");
-            close(client_sock);
-            break;
-        }
-
+        // Times handling:
         double time_taken = (double)(end_time.tv_sec - start_time.tv_sec)*1000.0 + (double)(end_time.tv_usec - start_time.tv_usec) / 1000.0;
 
-        // Handling the memory issues:
         num_times++;
         time_taken_array = realloc(time_taken_array, num_times * sizeof(double));
         if (time_taken_array == NULL) {
             perror("Error occured while reallocating memory");
             return 1;
         }
-        time_taken_array[num_times - 1] = time_taken;
-
+        time_taken_array[num_times - 1] = time_taken;  // Saving the time taken to receive the current file.
     }
+    close(client_sock);
+    close(sock);
 
     // Printing:
     printf("----------------------------\n");

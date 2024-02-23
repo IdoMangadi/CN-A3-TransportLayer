@@ -8,6 +8,10 @@
 
 #define SERVER_PORT 9998
 
+/**
+ * This function generating a file.
+ * param size := unsigned int representing the requested size in bytes.
+*/
 char *util_generate_random_data(unsigned int size){
     char *buffer = NULL;
 
@@ -35,6 +39,7 @@ char *util_generate_random_data(unsigned int size){
 
 
 int main(){
+    // Generating the file to send:
     unsigned int size = 3 * 1024 * 1024;
     char *random_data = util_generate_random_data(size);
 
@@ -79,11 +84,13 @@ int main(){
             } while(scanf(" %d", &user_choice) != 1);
         }
 
+        // Sending an exit message:
         char exit_message = 'E';
         if (send(sock, &exit_message, sizeof(exit_message), 0) < 0){
-                perror("Send failed");
-                return 1;
+            perror("Send failed");
+            return 1;
         }
+        // Closing the socket:
         close(sock);
         free(random_data);
 
