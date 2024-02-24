@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #define SERVER_PORT 9998
+#define DATA_SIZE 3 * 1024 * 1024
 
 /**
  * This function generating a file.
@@ -40,7 +41,7 @@ char *util_generate_random_data(unsigned int size){
 
 int main(){
     // Generating the file to send:
-    unsigned int size = 3 * 1024 * 1024;
+    unsigned int size = DATA_SIZE;
     char *random_data = util_generate_random_data(size);
 
     if (random_data != NULL){
@@ -93,7 +94,6 @@ int main(){
         // Closing the socket:
         close(sock);
         free(random_data);
-
     }
 
     return 0;

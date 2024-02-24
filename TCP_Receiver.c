@@ -70,7 +70,7 @@ int main(){
     // Reading file from the sender:
     while(1){
 
-        char buffer[BUFFER_SIZE] = {0};
+        char buffer[(BUFFER_SIZE + 1024)] = {0};
 
         printf("Starting to receive file from Sender\n");
 
@@ -78,10 +78,11 @@ int main(){
         struct timeval start_time, end_time;
         gettimeofday(&start_time, NULL);
 
-        size_t bytes_received;
-
-        // The receive part:
-        if(recv(client_sock, buffer, BUFFER_SIZE, 0) >= 0){
+        // The receiving part:
+        size_t bytes_received = recv(client_sock, buffer, (BUFFER_SIZE + 1024), 0);
+        if( bytes_received < 0){
+            perror("Error occured whlie reading");
+            close(file_fd);
             break;
         }
         if(buffer[0] == 'E'){
@@ -89,8 +90,7 @@ int main(){
             close(file_fd);
             break;
         }
-        write(file_fd, buffer, BUFFER_SIZE);
-    
+        write(file_fd, buffer, (BUFFER_SIZE + 1024));
 
         // End of measuring:
         gettimeofday(&end_time, NULL);
