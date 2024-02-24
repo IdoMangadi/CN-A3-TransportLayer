@@ -8,11 +8,33 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <netinet/tcp.h>
 
-#define SERVER_PORT 9998
 #define BUFFER_SIZE 3 * 1024 * 1024
 
-int main(){
+int arguments_error(){
+    perror("Error occured whlie getting arguments");
+    return 1;
+}
+
+int main(int argc, char* argv[]){
+
+    // Handling arguments:
+    if(argc != 5){
+        return arguments_error();
+    }
+    // PORT:
+    int port = 9998;
+    if(strcmp("-p", argv[1]) == 0){
+        port = atoi(argv[2]);
+    }
+    else {return arguments_error();}
+    // CC Algorithm:
+    char* algorithm = NULL;
+    if(strcmp("-algo", argv[3]) == 0){
+        algorithm = argv[4];
+    }
+    else {return arguments_error();}
 
     printf("Starting receiver...\n");
 
@@ -33,7 +55,13 @@ int main(){
     // Asking the OS to give the socket IP (Maybe will change later!)
     server.sin_addr.s_addr = INADDR_ANY;
     server.sin_family = AF_INET;
-    server.sin_port = htons(SERVER_PORT);
+    server.sin_port = htons(port);
+
+    // Defining CC algorithm:
+    if(setsockopt(sock, IPPROTO_TCP, TCP_CONGESTION, algorithm, strlen(algorithm)) < 0){
+        perror("Error occured whlie defining CC algorithm");
+        return 1;
+    }
 
     // Binding:
     if (bind(sock, (struct sockaddr*)&server, sizeof(server)) < 0){
@@ -70,7 +98,7 @@ int main(){
     // Reading file from the sender:
     while(1){
 
-        char buffer[(BUFFER_SIZE + 1024)] = {0};
+        char buffer[(BUFFER_SIZE)] = {0};
 
         printf("Starting to receive file from Sender\n");
 
@@ -79,7 +107,7 @@ int main(){
         gettimeofday(&start_time, NULL);
 
         // The receiving part:
-        size_t bytes_received = recv(client_sock, buffer, (BUFFER_SIZE + 1024), 0);
+        size_t bytes_received = recv(client_sock, buffer, (BUFFER_SIZE), 0);
         if( bytes_received < 0){
             perror("Error occured whlie reading");
             close(file_fd);
@@ -90,7 +118,7 @@ int main(){
             close(file_fd);
             break;
         }
-        write(file_fd, buffer, (BUFFER_SIZE + 1024));
+        write(file_fd, buffer, (BUFFER_SIZE));
 
         // End of measuring:
         gettimeofday(&end_time, NULL);
@@ -123,6 +151,7 @@ int main(){
         times_sum += time_taken_array[i];
     }
 
+    printf("- CC Algorithm: %s\n", algorithm);
     printf("- Average time: %fms\n", times_sum/num_times);
     printf("- Average bandwidth: %fMB/s\n", speeds_sum/num_times);
     printf("----------------------------\n");

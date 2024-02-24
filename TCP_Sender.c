@@ -5,8 +5,8 @@
 #include <string.h>
 #include <time.h>
 #include <stdlib.h>
+#include <netinet/tcp.h>
 
-#define SERVER_PORT 9998
 #define DATA_SIZE 3 * 1024 * 1024
 
 /**
@@ -38,8 +38,38 @@ char *util_generate_random_data(unsigned int size){
     return buffer;
 }
 
+int arguments_error(){
+    perror("Error occured whlie getting arguments");
+    return 1;
+}
 
-int main(){
+
+int main(int argc, char* argv[]){
+
+    // Handling arguments:
+    if(argc != 7){
+        return arguments_error();
+    }
+    // IP:
+    char* ip = NULL;
+    if(strcmp("-ip", argv[1]) == 0){
+        ip = argv[2];
+    }
+    else {return arguments_error();}
+    // PORT:
+    int port = 9998;
+    if(strcmp("-p", argv[3]) == 0){
+        port = atoi(argv[4]);
+    }
+    else {return arguments_error();}
+    // CC Algorithm:
+    char* algorithm = NULL;
+    if(strcmp("-algo", argv[5]) == 0){
+        algorithm = argv[6];
+    }
+    else {return arguments_error();}
+
+
     // Generating the file to send:
     unsigned int size = DATA_SIZE;
     char *random_data = util_generate_random_data(size);
@@ -57,13 +87,19 @@ int main(){
             return 1;
         }
 
-        if (inet_pton(AF_INET, "127.0.0.1", &server.sin_addr) <= 0){
+        // Defining CC algorithm:
+        if(setsockopt(sock, IPPROTO_TCP, TCP_CONGESTION, algorithm, strlen(algorithm)) < 0){
+            perror("Error occured whlie defining CC algorithm");
+            return 1;
+        }
+
+        if (inet_pton(AF_INET, ip, &server.sin_addr) <= 0){
             perror("Error - invalid address / addres not supported");
             return 1;
         }
 
         server.sin_family = AF_INET;
-        server.sin_port = htons(SERVER_PORT);
+        server.sin_port = htons(port);
 
         // Connecting to the Receiver socket:
         if (connect(sock, (struct sockaddr*)&server, sizeof(server)) < 0){
