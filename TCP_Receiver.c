@@ -107,6 +107,13 @@ int main(int argc, char* argv[]){
         gettimeofday(&start_time, NULL);
 
         // The receiving part:
+        size_t total_received = 0;
+        while(total_received < BUFFER_SIZE){
+
+            
+        }
+
+
         size_t bytes_received = recv(client_sock, buffer, (BUFFER_SIZE), 0);
         if( bytes_received < 0){
             perror("Error occured whlie reading");

@@ -13,7 +13,6 @@ struct rudp_header {
     uint16_t length;
     uint16_t checksum;
     uint8_t flags;
-    void* payload;
 };
 
 /**

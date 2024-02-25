@@ -107,19 +107,31 @@ int main(int argc, char* argv[]){
             return 1;
         }
 
-        
-        int user_choice = 1;
-        while(user_choice){
-            // Sending the file:
-            if (send(sock, random_data, size, 0) < 0){
-                perror("Send failed");
-                return 1;
-            }
-            // Asking the user about sending again:
-            do{
-                printf("Do you want to send the file again?\nYes -> Enter 1\nNo -> Enter 0\nYour answer: ");
-            } while(scanf(" %d", &user_choice) != 1);
+        // Sending the file for the first time:
+        if (send(sock, random_data, size, 0) < 0){
+            perror("Send failed");
+            return 1;
         }
+
+        int user_choice = 1;
+        
+        do{
+            printf("Do you want to send the file again?\nYes -> Enter 1\nNo -> Enter 0\nYour answer: ");
+            scanf(" %d", &user_choice);
+            if(user_choice == 1){
+                // Sending continuing message:
+                char continue_message = 'C';
+                if (send(sock, &continue_message, sizeof(continue_message), 0) < 0){
+                    perror("Send failed");
+                    return 1;
+                }
+                //Sendinf the file again:
+                if (send(sock, random_data, size, 0) < 0){
+                    perror("Send failed");
+                    return 1;
+                }
+            }
+        } while(user_choice != 0);
 
         // Sending an exit message:
         char exit_message = 'E';
