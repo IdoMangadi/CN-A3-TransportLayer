@@ -125,7 +125,7 @@ int main(int argc, char* argv[]){
 
         printf("File transfer completed.\n");
 
-        // Times handling:
+        // Times handling: (*1000.0): second -> milliseconds , (/1000.0): microseconds -> milliseconds
         double time_taken = (double)(end_time.tv_sec - start_time.tv_sec)*1000.0 + (double)(end_time.tv_usec - start_time.tv_usec) / 1000.0;
 
         num_times++;
@@ -145,7 +145,7 @@ int main(int argc, char* argv[]){
     double times_sum = 0;
     double speeds_sum = 0;
     for (int i=0; i<num_times; i++){
-        double speed = (3.0 * 1024 * 1024) / (time_taken_array[i] / 1000.0);
+        double speed = (3.0 * 1024 * 1024) / (time_taken_array[i] / 1000.0);  // Converting to seconds
         speeds_sum += speed;
         printf("- Run #%d:  Time=%fms; Speed=%f MB/s\n", i, time_taken_array[i], speed);
         times_sum += time_taken_array[i];
