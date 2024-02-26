@@ -177,7 +177,61 @@ int rudp_send(int sockfd, char *data, size_t len) {
 /**
  * Receive data from a peer.
 */
-int rudp_receive(int sockfd, void *buffer, size_t buffer_size) {
+int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_in *sender_addr) {
+
+    // Connection check:
+    while(s_sender_addr == NULL){
+        // Creating SYN header:
+        struct rudp_header* syn_header;
+        syn_header->flags = 0;
+        // Creating ACKSYN header:
+        struct rudp_header* acksyn_header;
+        acksyn_header->flags = ACKSYN;
+
+        // Receiving SYN message:
+        size_t bytes_received = recvfrom(sockfd, syn_header, sizeof(syn_header), 0, (struct sockaddr *)s_receiver_addr, &s_addr_len);
+
+
+
+
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     //TODO: RECEIVE DATA, CHECKSUM VALIDATION, SENDING ACK / BROKEN
 
     char* received_packet[sizeof(struct rudp_header) + buffer_size];  // Space for maximum data size + rudp_header
