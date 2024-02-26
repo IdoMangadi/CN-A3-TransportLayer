@@ -12,8 +12,7 @@
 #define ACK 3
 #define FIN 98
 #define ACKFIN 99
-#define SEND 10
-#define RECV 11
+#define DATA 100
 #define BROKEN 101
 
 // RUDP Elements:

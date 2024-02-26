@@ -13,6 +13,7 @@
 static struct sockaddr_in *s_receiver_addr = NULL;
 static struct sockaddr_in *s_sender_addr = NULL;
 static socklen_t s_addr_len = sizeof(struct sockaddr_in);
+static int8_t r_seq_number = 0;
 
 
 // RUDP header structure definition:
@@ -20,6 +21,7 @@ struct rudp_header {
     int16_t length;
     int16_t checksum;
     int8_t flags;
+    int8_t seq_number;
 };
 
 
@@ -179,24 +181,84 @@ int rudp_send(int sockfd, char *data, size_t len) {
 */
 int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_in *sender_addr) {
 
-    // Connection check:
+    // Enforce first SYN acception:
     while(s_sender_addr == NULL){
-        // Creating SYN header:
-        struct rudp_header* syn_header;
-        syn_header->flags = 0;
-        // Creating ACKSYN header:
-        struct rudp_header* acksyn_header;
-        acksyn_header->flags = ACKSYN;
 
-        // Receiving SYN message:
-        size_t bytes_received = recvfrom(sockfd, syn_header, sizeof(syn_header), 0, (struct sockaddr *)s_receiver_addr, &s_addr_len);
+        // Receiving packet:
+        char* tmp_buffer[sizeof(struct rudp_header) + buffer_size];
+        size_t bytes_received = recvfrom(sockfd, tmp_buffer, sizeof(tmp_buffer), 0, (struct sockaddr *)sender_addr, sizeof(struct sockaddr_in));
+        // Splitting the header:
+        struct rudp_header* tmp_header = tmp_buffer;
 
+        // Handling SYN request:
+        if(tmp_header->flags == SYN){
 
+            // Creating ACKSYN header:
+            struct rudp_header* acksyn_header;
+            acksyn_header->checksum = 0;
+            acksyn_header->length = 0;
+            acksyn_header->seq_number = 0;
+            acksyn_header->flags = ACKSYN;
 
+            // Sending ACKSYN:
+            size_t bytes_sent = sendto(sockfd, acksyn_header, sizeof(acksyn_header), 0, (struct sockaddr *)sender_addr, sizeof(struct sockaddr_in));
+            // Updating "cilent SYN flag":
+            s_sender_addr = sender_addr; 
+        }
+    }
 
+    // Getting data from s_sender. handling resented SYN inside:
+    int got_data = 0;
+    while(got_data == 0){
+
+        // Receiving packet:
+        char* packet_received[sizeof(struct rudp_header) + buffer_size]; // Space for maximum data size + rudp_header
+        size_t bytes_received = recvfrom(sockfd, packet_received, sizeof(packet_received), 0, (struct sockaddr *)s_sender_addr, sizeof(struct sockaddr_in));
+        // Splitting the header:
+        struct rudp_header* header = packet_received;
+        char* data = packet_received[sizeof(header)];
+
+        // Handling resented SYN:
+        if(header->flags == SYN){
+            // Creating ACKSYN header:
+            struct rudp_header* acksyn_header;
+            acksyn_header->checksum = 0;
+            acksyn_header->length = 0;
+            acksyn_header->seq_number = 0;
+            acksyn_header->flags = ACKSYN;
+
+            // Sending ACKSYN:
+            size_t bytes_sent = sendto(sockfd, acksyn_header, sizeof(acksyn_header), 0, (struct sockaddr *)sender_addr, sizeof(struct sockaddr_in));
+            continue;
+        }
+
+        // Handling data receiving:
+        if(header->flags == DATA){
+            
+            // Copy data to the buffer:
+            memcpy(data, buffer, buffer_size);
+            got_data = 1;
+            break;
+        }
+
+        // Handling FIN:
+        if(header->flags == FIN){
+            // Creating ACKFIN header:
+            struct rudp_header* ackfin_header;
+            ackfin_header->checksum = 0;
+            ackfin_header->length = 0;
+            ackfin_header->flags = ACKFIN;
+
+            // Sending ACKFIN:
+            size_t bytes_sent = sendto(sockfd, ackfin_header, sizeof(ackfin_header), 0, (struct sockaddr *)s_sender_addr, sizeof(struct sockaddr_in));
+            s_sender_addr = NULL;
+            return -1;
+            
+        }
 
 
     }
+
 
 
 
