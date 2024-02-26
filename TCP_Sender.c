@@ -125,7 +125,7 @@ int main(int argc, char* argv[]){
                     perror("Send failed");
                     return 1;
                 }
-                //Sendinf the file again:
+                //Sending the file again:
                 if (send(sock, random_data, size, 0) < 0){
                     perror("Send failed");
                     return 1;
