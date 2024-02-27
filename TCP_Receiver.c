@@ -79,7 +79,7 @@ int main(int argc, char* argv[]){
     // Creating space in memory to sava the measured times ans sizes:
     double *time_taken_array = NULL;
     // double *sizes_array = NULL;
-    size_t num_times = 0;
+    ssize_t num_times = 0;
 
     // Accepting a TCP connection:
     int client_sock = accept(sock, (struct sockaddr *)&client, &client_len);
@@ -97,14 +97,14 @@ int main(int argc, char* argv[]){
         printf("Starting to receive file from Sender\n");
 
         // The receiving part:
-        size_t total_received = 0;
+        ssize_t total_received = 0;
 
         // Starting time measuring:
         struct timeval start_time, end_time;
         gettimeofday(&start_time, NULL);
 
         while(total_received < BUFFER_SIZE){
-            size_t bytes_received = recv(client_sock, buffer, (BUFFER_SIZE), 0);  
+            ssize_t bytes_received = recv(client_sock, buffer, (BUFFER_SIZE), 0);  
             if( bytes_received < 0){
                 perror("Error occured whlie reading");
                 break;

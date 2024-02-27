@@ -1,59 +1,32 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-#include <time.h>
-#include <sys/time.h>
+#ifndef RUDP_H
+#define RUDP_H
 
-// RUDP Conventions:
-#define SYN 7
-#define ACKSYN 8
-#define ACK 3
-#define FIN 98
-#define ACKFIN 99
-#define DATA 100
-#define BROKEN 101
+#include <stdint.h>
+#include <netinet/in.h>
 
-// RUDP Elements:
-#define TIMEOUT 50000 // in microseconds, => 50 in miliseconds => 0.05 in seconds
-#define MAX_ACCEPT_TRIES 10  // Number of tries to accept a connection.
+#define MAX_TRIES 3
+#define TIMEOUT 3000 // 3000 milliseconds
+#define INCOMMING_CONNECTIONS_TIMEOUT 60 // In seconds
+#define INCOMMING_DATA_TIMEOUT 60 // In seconds
+#define BUFFER_SIZE 3 * 1024 * 1024
 
-// TODO: CREATING HEADER FILE FOR #DEFINES, 
+// RUDP header flags
+#define SYN 0x01
+#define ACK 0x02
+#define DATA 0x04
+#define FIN 0x08
+#define ACKSYN (SYN | ACK)
+#define ACKFIN (FIN | ACK)
+#define NACK 0x10
 
-// RUDP header structure definition:
-struct rudp_header {
-    uint16_t length;
-    uint16_t checksum;
-    uint8_t flags;
-};
+extern struct sockaddr_in *s_receiver_addr;
+extern struct sockaddr_in *s_sender_addr;
 
-/**
- * Creating a RUDP and creating a handshake between two peers.
-*/
-int rudp_socket(const char *server_ip, int server_port){}
+int rudp_socket();
+int rudp_connect(int sockfd, const char *receiver_ip, int receiver_port);
+int rudp_bind(int sockfd, int local_port);
+int rudp_send(int sockfd, char *data, size_t len, struct sockaddr_in *receiver_addr);
+int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_in *sender_addr);
+int rudp_close(int sockfd);
 
-
-/**
- * Sending data to the peer. the function should wait for an acknowledgment packet and if it didn't receive any, retransmits the data.
-*/
-int rudp_send(int sockfd, const void *data, size_t len, struct sockaddr_in *receiver_addr) {
-    // TODO: CREATING PACKET WITH RUDP PROTOCOL, SENDING IT, WAIT FOR ACK, SEND AGAIN AFTER TIMEOUT
-}
-
-
-/**
- * Receive data from a peer.
-*/
-int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_in *sender_addr) {
-    //TODO: RECEIVE DATA, CHECKSUM VALIDATION, SENDING N/ACK
-
-}
-
-
-/**
- * Closes a connections between peers.
-*/
-int rudp_close(int sockfd, struct sockaddr_in *receiver_addr) {
-    // TODO: SEND FIN, 
-}
+#endif /* RUDP_H */
