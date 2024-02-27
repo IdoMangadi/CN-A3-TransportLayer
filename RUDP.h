@@ -5,10 +5,11 @@
 #include <netinet/in.h>
 
 #define MAX_TRIES 3
-#define TIMEOUT 3000 // 3000 milliseconds
+#define TIMEOUT 50000 // in microseconds, => 50 in miliseconds => 0.05 in seconds
 #define INCOMMING_CONNECTIONS_TIMEOUT 60 // In seconds
 #define INCOMMING_DATA_TIMEOUT 60 // In seconds
 #define BUFFER_SIZE 3 * 1024 * 1024
+
 
 // RUDP header flags
 #define SYN 0x01
@@ -25,7 +26,7 @@ extern struct sockaddr_in *s_sender_addr;
 int rudp_socket();
 int rudp_connect(int sockfd, const char *receiver_ip, int receiver_port);
 int rudp_bind(int sockfd, int local_port);
-int rudp_send(int sockfd, char *data, size_t len, struct sockaddr_in *receiver_addr);
+int rudp_send(int sockfd, char *data, size_t len);
 int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_in *sender_addr);
 int rudp_close(int sockfd);
 

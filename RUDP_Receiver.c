@@ -6,7 +6,7 @@
 #include "RUDP.h"
 
 int arguments_error(){
-    perror("Error occured whlie getting arguments");
+    perror("Error occured while getting arguments");
     return 1;
 }
 
@@ -26,14 +26,14 @@ int main(int argc, char* argv[]) {
     // Create a socket:
     int sockfd = rudp_socket();
     if(sockfd < 0){
-        perror("Error occured whlie creating socket");
+        perror("Error occured while creating socket");
         return 1;
     }
 
     // Bind to local IP and port and accepting connection:
     int bind_res = rudp_bind(sockfd, port);
     if (bind_res == -1) {
-        perror("Error occured whlie binding.\n");
+        perror("Error occured while binding.\n");
         return 1;
     }
     if (bind_res == -2) {
@@ -41,7 +41,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     if (bind_res == -3) {
-        perror("Error occured whlie handshake.\n");
+        perror("Error occured while handshake.\n");
         return 0;
     }
     printf("Sender connected... waiting for data\n");

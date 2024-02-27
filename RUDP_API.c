@@ -13,16 +13,16 @@
 static struct sockaddr_in *s_receiver_addr = NULL;
 static struct sockaddr_in *s_sender_addr = NULL;
 static socklen_t s_addr_len = sizeof(struct sockaddr_in);
-static int8_t r_seq_number = 0;  // Representing the number of packets the receiver received in this session of communication.
-static int8_t s_seq_number = 0;  // Representing the number of packets the sender sent in this session of communication.
+static uint8_t r_seq_number = 0;  // Representing the number of packets the receiver received in this session of communication.
+static uint8_t s_seq_number = 0;  // Representing the number of packets the sender sent in this session of communication.
 
 
 // RUDP header structure definition:
 struct rudp_header {
-    int16_t length;
-    int16_t checksum;
-    int8_t flags;
-    int8_t seq_number;
+    uint16_t length;
+    uint16_t checksum;
+    uint8_t flags;
+    uint8_t seq_number;
 };
 
 
