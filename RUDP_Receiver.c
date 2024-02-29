@@ -5,6 +5,8 @@
 #include <sys/time.h>
 #include "RUDP.h"
 
+#define FILE_SIZE 3 * 1024 *1024
+
 int arguments_error(){
     perror("Error occured while getting arguments");
     return 1;
@@ -31,8 +33,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Bind to local IP and port and accepting connection:
-    int bind_res = rudp_bind(sockfd, port);
-    if (bind_res == -1) {
+    int bind_res = rudp_bind(sockfd,"127.0.0.1", port);
+    if (bind_res == -1) { 
         perror("Error occured while binding.\n");
         return 1;
     }
@@ -55,25 +57,29 @@ int main(int argc, char* argv[]) {
     while (1) {
 
         // Creating buffer for receiving data:
-        char buffer[BUFFER_SIZE];
+        char buffer[MAX_SEG_SIZE];  // Its more than actually get due to the header (created originaly for the RUDP_API).
 
         // Sender address struct for returning value from rudp_recv:
         struct sockaddr_in sender_addr;
 
         printf("Receiving MSG from Sender.\n");
 
+        ssize_t total_received = 0;
+
         // Starting time measuring:
         struct timeval start_time, end_time;
         gettimeofday(&start_time, NULL);
 
-        ssize_t bytes_received = rudp_receive(sockfd, buffer, sizeof(buffer), &sender_addr);
-        if (bytes_received == -1) {
-            fprintf(stderr, "Failed to receive data.\n");
-            break;
-        }
-        if (bytes_received == -2) {
-            fprintf(stderr, "Sender end connection.\n");  // Means the sender sent a FIN 
-            break;
+        while(total_received < FILE_SIZE){
+            ssize_t bytes_received = rudp_receive(sockfd, buffer, sizeof(buffer), &sender_addr);
+            if (bytes_received == -1 || bytes_received == -3) {
+                printf("Failed to receive data.\n");
+                return 1;
+            }
+            if(bytes_received == -2){
+                printf("Sender end communication.\n");
+                break;
+            }
         }
 
         // End of time measuring:
@@ -90,11 +96,12 @@ int main(int argc, char* argv[]) {
         }
         time_taken_array[num_times - 1] = time_taken;  // Saving the time taken to receive the current file.
 
-        bytes_received = rudp_receive(sockfd, buffer, 1, &sender_addr);
+        ssize_t bytes_received = rudp_receive(sockfd, buffer, 1, &sender_addr);
         if(buffer[0] == 'E'){
             print("Sender sent exit message.\n");  // The next msg from sender will be FIN 
         }
     }
+
 
     // Close the socket:
     rudp_close(sockfd);
@@ -107,7 +114,7 @@ int main(int argc, char* argv[]) {
     for (int i=0; i<num_times; i++){
         double speed = (3.0 * 1024 * 1024) / (time_taken_array[i] / 1000.0);  // Converting to seconds
         speeds_sum += speed;
-        printf("- Run #%d:    File Size: %d MB;    Time: %.*f ms;    Speed: %.*f MB/s\n", i, (BUFFER_SIZE)/(1024*1024), 2, time_taken_array[i], 2, speed);
+        printf("- Run #%d:    File Size: %d MB;    Time: %.*f ms;    Speed: %.*f MB/s\n", i, (FILE_SIZE)/(1024*1024), 2, time_taken_array[i], 2, speed);
         times_sum += time_taken_array[i];
     }
 

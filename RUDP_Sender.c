@@ -4,6 +4,8 @@
 #include <arpa/inet.h>
 #include "RUDP.h"
 
+#define FILE_SIZE 3 * 1024 *1024
+
 char *util_generate_random_data(unsigned int size){
     char *buffer = NULL;
 
@@ -56,7 +58,7 @@ int main(int argc, char* argv[]) {
 
 
     // Generating the file to send:
-    unsigned int size = BUFFER_SIZE;
+    unsigned int size = FILE_SIZE;
     char *random_data = util_generate_random_data(size);
 
     if (random_data != NULL){
@@ -71,15 +73,20 @@ int main(int argc, char* argv[]) {
         printf("RUDP Sender started.\n Connecting Receiver...\n");
 
         // Connect to the receiver
-        if (rudp_connect(sockfd, ip, port) == -1) {
+        int con_res = rudp_connect(sockfd, ip, port);
+        if ( con_res == -1) {
             perror("Error occurred while connecting\n");
             return 1;
+        }
+        if ( con_res == -2) {
+            perror("Receiver not responding.\n");
+            return 0;
         }
 
         printf("Connection established.\n");
 
-        // Sending the file:
-        if(rudp_send(sockfd, random_data, BUFFER_SIZE) < 0){
+        // Sending the file for the first time:
+        if(rudp_send(sockfd, random_data, FILE_SIZE) < 0){
             perror("Error occurred while sending random data.\n");
             return 1;
         }
@@ -96,7 +103,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 // Sending the file:
-                if(rudp_send(sockfd, random_data, BUFFER_SIZE) < 0){
+                if(rudp_send(sockfd, random_data, FILE_SIZE) < 0){
                     perror("Error occurred while sending random data.\n");
                     return 1;
                 }

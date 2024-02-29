@@ -12,8 +12,8 @@
 static struct sockaddr_in *stat_receiver_addr = NULL;
 static struct sockaddr_in *stat_sender_addr = NULL;
 static socklen_t s_addr_len = sizeof(struct sockaddr_in);
-static uint8_t recv_seq_number = 0;  // Representing the number of packets the receiver received in this session of communication.
-static uint8_t send_seq_number = 0;  // Representing the number of packets the sender sent in this session of communication.
+static uint8_t recv_seq_number = 0;  // Representing the packet number the receiver received in this session of communication.
+static uint8_t send_seq_number = 0;  // Representing the packet number the sender sent in this session of communication.
 
 
 // RUDP header structure definition:
@@ -26,7 +26,8 @@ struct rudp_header {
 
 
 /**
- * Creating a RUDP. returning socket fd.
+ * Creating a RUDP socket.
+ * return: socket fd.
 */
 int rudp_socket() {
     int sockfd;
@@ -44,8 +45,8 @@ int rudp_socket() {
 }
 
 /**
- * Establishes a connection with a specified receiver.
- * Returns 0 on success, -1 on failure.
+ * Establishes connection with a specified receiver.
+ * Returns: 0 for success, -1 for error, -2 for receiver not respond.
  */
 int rudp_connect(int sockfd, const char *receiver_ip, int receiver_port) {
     // Create receiver address structure
@@ -55,8 +56,7 @@ int rudp_connect(int sockfd, const char *receiver_ip, int receiver_port) {
 
     receiver_addr.sin_family = AF_INET;  // Connection type
     receiver_addr.sin_port = htons(receiver_port);  // Port
-    if (inet_pton(AF_INET, receiver_ip, &receiver_addr.sin_addr) <= 0) {  // IP 
-        perror("inet_pton");
+    if (inet_pton(AF_INET, receiver_ip, &receiver_addr.sin_addr) <= 0) {  // IP
         return -1;
     }
 
@@ -102,7 +102,7 @@ int rudp_connect(int sockfd, const char *receiver_ip, int receiver_port) {
 
     // Limitting the SYN tries:
     if(tries = MAX_TRIES && ack_packet.flags != ACKSYN){
-        return -1;
+        return -2;
     }
 
     // Store the receiver address for future use
@@ -114,20 +114,21 @@ int rudp_connect(int sockfd, const char *receiver_ip, int receiver_port) {
 
 
 /**
- * Binds the socket to the specified local IP and port and wait for connection.
- * Returns 0 on success, -1 on failure, -2 for no incomming connections and -3 on sending ACKSYN failure.
+ * Binds the socket to the a local IP and given port and wait for connection.
+ * Returns 0 ofor success, -1 for error, -2 for no incomming connections and -3 for handshake failure.
  */
-int rudp_bind(int sockfd, int port) { // I removed: const char *local_ip
+int rudp_bind(int sockfd, const char *local_ip, int port) { 
     // Create server address structure
     struct sockaddr_in serverAddr;
     memset(&serverAddr, 0, sizeof(serverAddr)); 
     serverAddr.sin_family = AF_INET;  // Connection type
     serverAddr.sin_port = htons(port);  // Port
-    serverAddr.sin_addr.s_addr = htonl(INADDR_ANY);  // IP
+    if (inet_pton(AF_INET, local_ip, &serverAddr.sin_addr) <= 0) {
+        return -1;
+    }
 
     // Bind socket to local address
     if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
-        perror("Error occured whlie binding");
         return -1;
     }
     // printf("RUDP Receiver started.\nWating for connections...\n");
@@ -174,8 +175,8 @@ int rudp_bind(int sockfd, int port) { // I removed: const char *local_ip
 
 
 /**
- * Sending data to the peer. the function should wait for an acknowledgment packet and if it didn't receive any, retransmits the data.
- * The function only trying to send DATA - MAX_TRIES times.
+ * Sending data to the connected peer.
+ * returns bytes sent or -1 for error.
 */
 int rudp_send(int sockfd, const void *data, size_t len) {  //  struct sockaddr_in *receiver_addr (i deleted it)
 
@@ -233,10 +234,12 @@ int rudp_send(int sockfd, const void *data, size_t len) {  //  struct sockaddr_i
         while((ack_packet.flags != ACK || (ack_packet.flags == ACK && ack_packet.seq_number != send_seq_number)) && tries < MAX_TRIES){
             // Sending the DATA packet:
             bytes_sent = sendto(sockfd, to_send_packet, sizeof(header) + bytes_to_send, 0, (struct sockaddr *)stat_receiver_addr, sizeof(struct sockaddr_in));
+            if(bytes_sent < 0){return -1;}
 
             // Receiving the ACK packet:
             if(bytes_sent > 0){
                 bytes_received = recvfrom(sockfd, &ack_packet, sizeof(ack_packet), 0, (struct sockaddr *)stat_receiver_addr, &s_addr_len);
+                if(bytes_received < 0){ return -1;}
             }
         }
 
@@ -256,9 +259,7 @@ int rudp_send(int sockfd, const void *data, size_t len) {  //  struct sockaddr_i
 
 /**
  * Receive data from a peer.
- * Returning -1 if nothing received from sender 
- * Returning -2 if sender sent FIN.
- * Returning -3 for errors.
+ * Returns byte received or -1 for nothing received from sender, -2 for sender finished communication, -3 for errors. 
 */
 int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_in *sender_addr) {
 
@@ -298,9 +299,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
 
             // Sending ACKSYN:
             ssize_t bytes_sent = sendto(sockfd, &acksyn_header, sizeof(acksyn_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
-            if(bytes_sent < 0){
-                return -3;
-            } 
+            if(bytes_sent < 0){return -3;} 
             recv_seq_number = 0;
             continue;
         }
@@ -319,9 +318,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
             if(header->seq_number == recv_seq_number){  // Means already have the packet, sender didnt receive the ACK
                 ack_header.seq_number = recv_seq_number;
                 size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
-                if(bytes_sent < 0){
-                    return -3;
-                }
+                if(bytes_sent < 0){return -3;}
                 continue;  //Continue to wait the correct packet in sequence.
             }
 
@@ -351,9 +348,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
 
             // Sending the response packet:
             size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
-            if(bytes_sent < 0){
-                return -3;
-            }
+            if(bytes_sent < 0){return -3;}
         }
 
         // Handling FIN:
@@ -367,9 +362,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
 
             // Sending ACKFIN:
             size_t bytes_sent = sendto(sockfd, &ackfin_header, sizeof(ackfin_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
-            if(bytes_sent < 0){
-                return -3;
-            }
+            if(bytes_sent < 0){return -3;}
             stat_sender_addr = NULL; 
             recv_seq_number = 0;
             return -2; 
@@ -385,6 +378,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
 
 /**
  * Closes a connections between peers.
+ * returns 0 for success, -1 for errors.
 */
 int rudp_close(int sockfd) {
     // Sender side:
@@ -416,15 +410,11 @@ int rudp_close(int sockfd) {
         while(ackfin_header.flags != ACKFIN && tries < MAX_TRIES){
             // Sending the FIN:
             ssize_t bytes_sent = sendto(sockfd, &fin_header, sizeof(fin_header), 0, (struct sockaddr *)stat_receiver_addr, s_addr_len);
-            if(bytes_sent < 0){
-                return -3;
-            }
+            if(bytes_sent < 0){return -3;}
 
             // Wating for ACKFIN:
             ssize_t bytes_received = recvfrom(sockfd, &ackfin_header, sizeof(ackfin_header), 0, (struct sockaddr *)stat_receiver_addr, &s_addr_len);
-            if(bytes_received < 0){
-                return -3;
-            }
+            if(bytes_received < 0){return -3;}
             tries++;
         }
         stat_receiver_addr = NULL;
