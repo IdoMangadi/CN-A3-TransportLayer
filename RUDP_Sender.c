@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <time.h>
 #include "RUDP.h"
 
 #define FILE_SIZE 3 * 1024 *1024
@@ -82,7 +83,7 @@ int main(int argc, char* argv[]) {
             perror("Receiver not responding.\n");
             return 0;
         }
-
+        
         printf("Connection established.\n");
 
         // Sending the file for the first time:

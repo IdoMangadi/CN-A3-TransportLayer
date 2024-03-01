@@ -9,8 +9,10 @@
 
 
 // Static variables:
-static struct sockaddr_in *stat_receiver_addr = NULL;
-static struct sockaddr_in *stat_sender_addr = NULL;
+static struct sockaddr_in stat_receiver_addr;
+static int recv_addr = 0;
+static struct sockaddr_in stat_sender_addr;
+static int send_addr = 0;
 static socklen_t s_addr_len = sizeof(struct sockaddr_in);
 static uint8_t recv_seq_number = 0;  // Representing the packet number the receiver received in this session of communication.
 static uint8_t send_seq_number = 0;  // Representing the packet number the sender sent in this session of communication.
@@ -36,10 +38,6 @@ int rudp_socket() {
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1) { 
         return -1;
     }
-
-    // Set default receiver and sender addresses to NULL
-    stat_receiver_addr = NULL;
-    stat_sender_addr = NULL;
 
     return sockfd;
 }
@@ -92,21 +90,18 @@ int rudp_connect(int sockfd, const char *receiver_ip, int receiver_port) {
         }
 
         // Receiving packet back (timeout defined):
-        ssize_t bytes_received = recvfrom(sockfd, &ack_packet, sizeof(ack_packet), 0, (struct sockaddr *)&receiver_addr, &s_addr_len);
-        if(bytes_sent < 0){
-            return -1;
-        }
-        
+        recvfrom(sockfd, &ack_packet, sizeof(ack_packet), 0, (struct sockaddr *)&receiver_addr, &s_addr_len); 
         tries++;
     }
 
     // Limitting the SYN tries:
-    if(tries = MAX_TRIES && ack_packet.flags != ACKSYN){
+    if((tries = MAX_TRIES) && (ack_packet.flags != ACKSYN)){
         return -2;
     }
 
-    // Store the receiver address for future use
-    memcpy(stat_receiver_addr, &receiver_addr, sizeof(receiver_addr));
+    // Store the receiver address for future use:
+    memcpy(&stat_receiver_addr, &receiver_addr, sizeof(receiver_addr));
+    recv_addr = 1;
     send_seq_number = 0;
 
     return 0;
@@ -131,7 +126,7 @@ int rudp_bind(int sockfd, const char *local_ip, int port) {
     if (bind(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr)) == -1) {
         return -1;
     }
-    // printf("RUDP Receiver started.\nWating for connections...\n");
+    printf("RUDP Receiver started.\nWating for connections...\n");
 
     // First handshake try:
     // Creating SYN header:
@@ -159,16 +154,17 @@ int rudp_bind(int sockfd, const char *local_ip, int port) {
 
     while(syn_header.flags != SYN){
         // Receiving SYN:
-        ssize_t bytes_received = recvfrom(sockfd, &syn_header, sizeof(syn_header), 0, (struct sockaddr *)stat_sender_addr, &s_addr_len);
+        ssize_t bytes_received = recvfrom(sockfd, &syn_header, sizeof(syn_header), 0, (struct sockaddr *)&stat_sender_addr, &s_addr_len);
         if(bytes_received < 0){
             return -2;
         }
     }
 
     // Sending ACKSYN: (Sending only once, handling lost in recv function)
-    if(sendto(sockfd, &acksyn_header, sizeof(acksyn_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in)) < 0){
+    if(sendto(sockfd, &acksyn_header, sizeof(acksyn_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in)) < 0){
         return -3;
     }
+    send_addr = 1;
     recv_seq_number = 0;
     return 0;
 }
@@ -178,10 +174,10 @@ int rudp_bind(int sockfd, const char *local_ip, int port) {
  * Sending data to the connected peer.
  * returns bytes sent or -1 for error.
 */
-int rudp_send(int sockfd, const void *data, size_t len) {  //  struct sockaddr_in *receiver_addr (i deleted it)
+int rudp_send(int sockfd, void *data, size_t len) { 
 
     // Handshake validation:
-    if(stat_receiver_addr == NULL){
+    if(recv_addr == 0){
         return -1;
     }
 
@@ -224,8 +220,8 @@ int rudp_send(int sockfd, const void *data, size_t len) {  //  struct sockaddr_i
 
         // Building the packet to send:
         char to_send_packet[MAX_SEG_SIZE];
-        memcpy(to_send_packet, &header, sizeof(header));  // Copying the header.
-        memcpy(to_send_packet[sizeof(header)], data_ptr, bytes_to_send);  // Copying the data.
+        memcpy((void*)to_send_packet, (void*)&header, sizeof(header));  // Copying the header.
+        memcpy((void*)(to_send_packet + sizeof(header)), (void*)data_ptr, bytes_to_send);  // Copying the data.
 
         // Sending proccess:
         ssize_t bytes_sent = 0;
@@ -233,12 +229,12 @@ int rudp_send(int sockfd, const void *data, size_t len) {  //  struct sockaddr_i
         ssize_t tries = 0;
         while((ack_packet.flags != ACK || (ack_packet.flags == ACK && ack_packet.seq_number != send_seq_number)) && tries < MAX_TRIES){
             // Sending the DATA packet:
-            bytes_sent = sendto(sockfd, to_send_packet, sizeof(header) + bytes_to_send, 0, (struct sockaddr *)stat_receiver_addr, sizeof(struct sockaddr_in));
+            bytes_sent = sendto(sockfd, to_send_packet, sizeof(header) + bytes_to_send, 0, (struct sockaddr *)&stat_receiver_addr, sizeof(struct sockaddr_in));
             if(bytes_sent < 0){return -1;}
 
             // Receiving the ACK packet:
             if(bytes_sent > 0){
-                bytes_received = recvfrom(sockfd, &ack_packet, sizeof(ack_packet), 0, (struct sockaddr *)stat_receiver_addr, &s_addr_len);
+                bytes_received = recvfrom(sockfd, &ack_packet, sizeof(ack_packet), 0, (struct sockaddr *)&stat_receiver_addr, &s_addr_len);
                 if(bytes_received < 0){ return -1;}
             }
         }
@@ -276,11 +272,11 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
 
         // Building the receiving packet:
         char* packet_received[MAX_SEG_SIZE];
-        bytes_received = recvfrom(sockfd, packet_received, MAX_SEG_SIZE, 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
+        bytes_received = recvfrom(sockfd, (void*)packet_received, MAX_SEG_SIZE, 0, (struct sockaddr *)&stat_sender_addr, &s_addr_len);
 
         // Handling not communicating sender (T.O):
         if(bytes_received < 0){
-            stat_sender_addr = NULL;  // Means next time the sender will have to handshake.
+            send_addr = 0;  // Means next time the sender will have to handshake.
             return -1;
         }
 
@@ -298,7 +294,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
             acksyn_header.flags = ACKSYN;
 
             // Sending ACKSYN:
-            ssize_t bytes_sent = sendto(sockfd, &acksyn_header, sizeof(acksyn_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
+            ssize_t bytes_sent = sendto(sockfd, &acksyn_header, sizeof(acksyn_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in));
             if(bytes_sent < 0){return -3;} 
             recv_seq_number = 0;
             continue;
@@ -317,7 +313,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
             // Sequence number validation:
             if(header->seq_number == recv_seq_number){  // Means already have the packet, sender didnt receive the ACK
                 ack_header.seq_number = recv_seq_number;
-                size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
+                size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in));
                 if(bytes_sent < 0){return -3;}
                 continue;  //Continue to wait the correct packet in sequence.
             }
@@ -347,7 +343,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
             ack_header.seq_number = header->seq_number;  // Updating seq_number of ack packet. 
 
             // Sending the response packet:
-            size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
+            size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in));
             if(bytes_sent < 0){return -3;}
         }
 
@@ -361,9 +357,9 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
             ackfin_header.flags = ACKFIN;
 
             // Sending ACKFIN:
-            size_t bytes_sent = sendto(sockfd, &ackfin_header, sizeof(ackfin_header), 0, (struct sockaddr *)stat_sender_addr, sizeof(struct sockaddr_in));
+            size_t bytes_sent = sendto(sockfd, &ackfin_header, sizeof(ackfin_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in));
             if(bytes_sent < 0){return -3;}
-            stat_sender_addr = NULL; 
+            send_addr = 0; 
             recv_seq_number = 0;
             return -2; 
         }
@@ -382,7 +378,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
 */
 int rudp_close(int sockfd) {
     // Sender side:
-    if(stat_receiver_addr != NULL){  // Means there was a handshake from the sender:
+    if(recv_addr == 1){  // Means there was a handshake from the sender:
 
         // Creating FIN header:
         struct rudp_header fin_header;
@@ -409,22 +405,22 @@ int rudp_close(int sockfd) {
 
         while(ackfin_header.flags != ACKFIN && tries < MAX_TRIES){
             // Sending the FIN:
-            ssize_t bytes_sent = sendto(sockfd, &fin_header, sizeof(fin_header), 0, (struct sockaddr *)stat_receiver_addr, s_addr_len);
+            ssize_t bytes_sent = sendto(sockfd, &fin_header, sizeof(fin_header), 0, (struct sockaddr *)&stat_receiver_addr, s_addr_len);
             if(bytes_sent < 0){return -3;}
 
             // Wating for ACKFIN:
-            ssize_t bytes_received = recvfrom(sockfd, &ackfin_header, sizeof(ackfin_header), 0, (struct sockaddr *)stat_receiver_addr, &s_addr_len);
+            ssize_t bytes_received = recvfrom(sockfd, &ackfin_header, sizeof(ackfin_header), 0, (struct sockaddr *)&stat_receiver_addr, &s_addr_len);
             if(bytes_received < 0){return -3;}
             tries++;
         }
-        stat_receiver_addr = NULL;
+        recv_addr = 0;
         send_seq_number = 0;  // Init sequence number for more connections to the receiver.
 
     }
 
     // Receiver side:
-    if(stat_sender_addr != NULL){
-        stat_sender_addr = NULL;
+    if(send_addr == 1){
+        send_addr = 0;
         recv_seq_number = 0;
     }
 

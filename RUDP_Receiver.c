@@ -74,6 +74,7 @@ int main(int argc, char* argv[]) {
             ssize_t bytes_received = rudp_receive(sockfd, buffer, sizeof(buffer), &sender_addr);
             if (bytes_received == -1 || bytes_received == -3) {
                 printf("Failed to receive data.\n");
+                if(time_taken_array != NULL){free(time_taken_array);}
                 return 1;
             }
             if(bytes_received == -2){
@@ -92,13 +93,23 @@ int main(int argc, char* argv[]) {
         time_taken_array = realloc(time_taken_array, num_times * sizeof(double));
         if (time_taken_array == NULL) {
             perror("Error occured while reallocating memory.\n");
+            if(time_taken_array != NULL){free(time_taken_array);}
             return 1;
         }
         time_taken_array[num_times - 1] = time_taken;  // Saving the time taken to receive the current file.
 
         ssize_t bytes_received = rudp_receive(sockfd, buffer, 1, &sender_addr);
+        if (bytes_received == -1 || bytes_received == -3) {
+            printf("Failed to receive data.\n");
+            if(time_taken_array != NULL){free(time_taken_array);}
+            return 1;
+        }
+        if(bytes_received == -2){
+            printf("Sender end communication.\n");
+            break;
+        }
         if(buffer[0] == 'E'){
-            print("Sender sent exit message.\n");  // The next msg from sender will be FIN 
+            printf("Sender sent exit message.\n");  // The next msg from sender will be FIN 
         }
     }
 

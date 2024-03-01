@@ -46,7 +46,7 @@ int rudp_bind(int sockfd, const char *local_ip, int port);
  * Sending data to the connected peer.
  * returns bytes sent or -1 for error.
 */
-int rudp_send(int sockfd, char *data, size_t len);
+int rudp_send(int sockfd, void *data, size_t len);
 
 /**
  * Receive data from a peer.
