@@ -8,7 +8,7 @@
 #define TIMEOUT 50000 // in microseconds, => 50 in miliseconds => 0.05 in seconds
 #define INCOMMING_CONNECTIONS_TIMEOUT 90 // In seconds
 #define INCOMMING_DATA_TIMEOUT 90 // In seconds
-#define MAX_SEG_SIZE 65482  // The *UDP* maximum segment size.
+#define MAX_SEG_SIZE 65482  // The *UDP* maximum segment size. DONT CHANGE !
 
 
 // RUDP header flags

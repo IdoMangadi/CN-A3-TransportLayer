@@ -26,6 +26,15 @@ struct rudp_header {
     uint8_t seq_number;
 };
 
+uint16_t check_sum(void* data, size_t len){
+    uint16_t res = 0;
+    char* ptr = (char*) data;
+    for(size_t i=0; i<len; i++){
+        res ^= ptr[i];
+    }
+    return res;
+}
+
 
 /**
  * Creating a RUDP socket.
@@ -212,9 +221,8 @@ int rudp_send(int sockfd, void *data, size_t len) {
             bytes_to_send = len - total_sent;
         }
         header.length = bytes_to_send;  // Setting data len.
-        for (size_t i=0; i<bytes_to_send; i++){  // Setting checksum.
-            header.checksum ^= data_ptr[i];
-        }
+        header.checksum = check_sum(data_ptr, bytes_to_send);  // Setting checksum.
+
         header.seq_number = (header.seq_number == 0) ? 1 : 0;  // Setting sequence number in header
         send_seq_number = header.seq_number;  // Updating sender's seuence number.
 
@@ -223,12 +231,14 @@ int rudp_send(int sockfd, void *data, size_t len) {
         memcpy((void*)to_send_packet, (void*)&header, sizeof(header));  // Copying the header.
         memcpy((void*)(to_send_packet + sizeof(header)), (void*)data_ptr, bytes_to_send);  // Copying the data.
 
+        // Debug printing:
+        // printf("sending packet of size: %zu : (%zu + %zu)\n", (sizeof(header) + bytes_to_send), sizeof(header), bytes_to_send);
+
         // Sending proccess:
         ssize_t bytes_sent = 0; 
         ssize_t tries = 0;
-        while((ack_packet.flags != ACK || (ack_packet.flags == ACK && ack_packet.seq_number != send_seq_number)) && tries < MAX_TRIES){
+        while((ack_packet.flags != ACK || ack_packet.seq_number != send_seq_number) && tries < MAX_TRIES){
             // Sending the DATA packet:
-            printf("First byte: %c", to_send_packet[sizeof(header)]);
             bytes_sent = sendto(sockfd, to_send_packet, sizeof(header) + bytes_to_send, 0, (struct sockaddr *)&stat_receiver_addr, sizeof(struct sockaddr_in));
             if(bytes_sent < 0){ return -1; }
 
@@ -283,6 +293,7 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
         // Splitting the header:
         struct rudp_header* header = (struct rudp_header*) packet_received; 
         char* data = packet_received + sizeof(struct rudp_header);
+        size_t data_received_len = bytes_received - sizeof(struct rudp_header);
 
         // Handling resent SYN:
         if(header->flags == SYN){
@@ -313,22 +324,21 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
             // Sequence number validation:
             if(header->seq_number == recv_seq_number){  // Means already have the packet, sender didnt receive the ACK
                 ack_header.seq_number = recv_seq_number;
-                size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in));
+                ssize_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in));
                 if(bytes_sent < 0){return -3;}
                 continue;  //Continue to wait the correct packet in sequence.
             }
 
             // Length validation:
-            if(header->length != bytes_received - sizeof(struct rudp_header)){  // Means the length is incorrect.
+            if(header->length != data_received_len){  // Means the length is incorrect. WAS: bytes_received - sizeof(struct rudp_header
                 ack_header.flags = NACK; 
             }
             else{
                 // Checksum validation:
-                int16_t tmp_checksum = 0;
-                for (size_t i=0; i<buffer_size; i++){
-                    tmp_checksum ^= data[i];
-                }
+                uint16_t tmp_checksum = check_sum(data, data_received_len);
+
                 // Updating NACK for incorrect checksum:
+                // printf("header chacksum: %u , my calculation: %u    ", header->checksum, tmp_checksum);  // Debug print
                 if(tmp_checksum != header->checksum){
                     ack_header.flags = NACK;
                 }
@@ -337,13 +347,14 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
                     size_t size_to_copy = (buffer_size < header->length) ? buffer_size : header->length;
                     memcpy(data, buffer, size_to_copy);
                     got_data = 1;
-                    recv_seq_number = header->seq_number;  // Updaating self seq_number.
+                    recv_seq_number = header->seq_number;  // Updating self seq_number.
                 }
             }
             ack_header.seq_number = header->seq_number;  // Updating seq_number of ack packet. 
 
             // Sending the response packet:
             size_t bytes_sent = sendto(sockfd, &ack_header, sizeof(ack_header), 0, (struct sockaddr *)&stat_sender_addr, sizeof(struct sockaddr_in));
+            // printf("sending ACK for DATA, got_data = %d\n", got_data);  // Debug print
             if(bytes_sent < 0){return -3;}
         }
 
@@ -364,8 +375,8 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
             return -2; 
         }
 
-    }
-
+    } 
+    // printf("bytes_received: %zd\n", bytes_received-sizeof(struct rudp_header));  // Debug print
     return bytes_received - sizeof(struct rudp_header);
 }
 
