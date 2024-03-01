@@ -65,6 +65,7 @@ int main(int argc, char* argv[]) {
         printf("Receiving MSG from Sender.\n");
 
         ssize_t total_received = 0;
+        int sender_exited = 0;
 
         // Starting time measuring:
         struct timeval start_time, end_time;
@@ -79,9 +80,14 @@ int main(int argc, char* argv[]) {
             }
             if(bytes_received == -2){
                 printf("Sender end communication.\n");
+                sender_exited = 1;
                 break;
             }
+            total_received += bytes_received;
         }
+        if(sender_exited){ break; }
+        
+        printf("got here!");
 
         // End of time measuring:
         gettimeofday(&end_time, NULL);
@@ -98,16 +104,17 @@ int main(int argc, char* argv[]) {
         }
         time_taken_array[num_times - 1] = time_taken;  // Saving the time taken to receive the current file.
 
-        ssize_t bytes_received = rudp_receive(sockfd, buffer, 1, &sender_addr);
+        ssize_t bytes_received = rudp_receive(sockfd, buffer, sizeof(buffer), &sender_addr);
         if (bytes_received == -1 || bytes_received == -3) {
             printf("Failed to receive data.\n");
             if(time_taken_array != NULL){free(time_taken_array);}
             return 1;
         }
         if(bytes_received == -2){
-            printf("Sender end communication.\n");
+            printf("Sender end communication1.\n");
             break;
         }
+        printf("continuing byte: %c", buffer[0]);
         if(buffer[0] == 'E'){
             printf("Sender sent exit message.\n");  // The next msg from sender will be FIN 
         }

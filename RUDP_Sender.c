@@ -5,7 +5,7 @@
 #include <time.h>
 #include "RUDP.h"
 
-#define FILE_SIZE 3 * 1024 *1024
+#define FILE_SIZE 3 * 1024 * 1024
 
 char *util_generate_random_data(unsigned int size){
     char *buffer = NULL;

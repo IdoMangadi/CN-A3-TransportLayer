@@ -224,19 +224,19 @@ int rudp_send(int sockfd, void *data, size_t len) {
         memcpy((void*)(to_send_packet + sizeof(header)), (void*)data_ptr, bytes_to_send);  // Copying the data.
 
         // Sending proccess:
-        ssize_t bytes_sent = 0;
-        ssize_t bytes_received = 0;
+        ssize_t bytes_sent = 0; 
         ssize_t tries = 0;
         while((ack_packet.flags != ACK || (ack_packet.flags == ACK && ack_packet.seq_number != send_seq_number)) && tries < MAX_TRIES){
             // Sending the DATA packet:
+            printf("First byte: %c", to_send_packet[sizeof(header)]);
             bytes_sent = sendto(sockfd, to_send_packet, sizeof(header) + bytes_to_send, 0, (struct sockaddr *)&stat_receiver_addr, sizeof(struct sockaddr_in));
-            if(bytes_sent < 0){return -1;}
+            if(bytes_sent < 0){ return -1; }
 
             // Receiving the ACK packet:
             if(bytes_sent > 0){
-                bytes_received = recvfrom(sockfd, &ack_packet, sizeof(ack_packet), 0, (struct sockaddr *)&stat_receiver_addr, &s_addr_len);
-                if(bytes_received < 0){ return -1;}
+                recvfrom(sockfd, &ack_packet, sizeof(ack_packet), 0, (struct sockaddr *)&stat_receiver_addr, &s_addr_len); 
             }
+            tries++;
         }
 
         // Limitting the DATA sending tries:
@@ -271,8 +271,8 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
     while(got_data == 0){
 
         // Building the receiving packet:
-        char* packet_received[MAX_SEG_SIZE];
-        bytes_received = recvfrom(sockfd, (void*)packet_received, MAX_SEG_SIZE, 0, (struct sockaddr *)&stat_sender_addr, &s_addr_len);
+        char packet_received[MAX_SEG_SIZE];
+        bytes_received = recvfrom(sockfd, packet_received, MAX_SEG_SIZE, 0, (struct sockaddr *)&stat_sender_addr, &s_addr_len);
 
         // Handling not communicating sender (T.O):
         if(bytes_received < 0){
@@ -281,8 +281,8 @@ int rudp_receive(int sockfd, void *buffer, size_t buffer_size, struct sockaddr_i
         }
 
         // Splitting the header:
-        struct rudp_header* header = (struct rudp_header*) packet_received;
-        char* data = packet_received[sizeof(header)];
+        struct rudp_header* header = (struct rudp_header*) packet_received; 
+        char* data = packet_received + sizeof(struct rudp_header);
 
         // Handling resent SYN:
         if(header->flags == SYN){
