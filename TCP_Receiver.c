@@ -128,15 +128,6 @@ int main(int argc, char* argv[]){
         }
         time_taken_array[num_times - 1] = time_taken;  // Saving the time taken to receive the current file.
 
-        // // Size handling: in Bytes
-        // double file_size = (double)total_received;
-        // sizes_array = realloc(sizes_array, num_times * sizeof(double));
-        // if(sizes_array == NULL){
-        //     perror("Error occured while reallocating memory");
-        //     return 1;
-        // }
-        // sizes_array[num_times-1] = file_size;  // Saving the file size of the current file.
-
         // Getting 'C' or 'E' from the sender:
         recv(client_sock, buffer, 1, 0); 
         if(buffer[0] == 'E'){
@@ -153,9 +144,9 @@ int main(int argc, char* argv[]){
     double times_sum = 0;
     double speeds_sum = 0;
     for (int i=0; i<num_times; i++){
-        double speed = (3.0 * 1024 * 1024) / (time_taken_array[i] / 1000.0);  // Converting to seconds
+        double speed = ((BUFFER_SIZE)/(1024.0*1024.0)) / (time_taken_array[i] / 1000.0);  // Converting to seconds
         speeds_sum += speed;
-        printf("- Run #%d:    File Size: %d MB;    Time: %.*f ms;    Speed: %.*f MB/s\n", i, (BUFFER_SIZE)/(1024*1024), 2, time_taken_array[i], 2, speed);
+        printf("- Run #%d:    File Size: %.*f MB;    Time: %.*f ms;    Speed: %.*f MB/s\n", i, 2, (BUFFER_SIZE)/(1024.0*1024.0), 2, time_taken_array[i], 2, speed);
         times_sum += time_taken_array[i];
     }
 

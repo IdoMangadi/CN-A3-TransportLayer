@@ -46,23 +46,25 @@ int main(int argc, char* argv[]) {
         perror("Error occured while handshake.\n");
         return 0;
     }
-    printf("Sender connected... waiting for data\n");
+    printf("Sender connected... waiting for data\nFirst receiving       : ");
 
     // Creating space in memory to save the measured times:
     double *time_taken_array = NULL;
     size_t num_times = 0;
 
+    // Creating buffer for receiving data:
+    char buffer[MAX_SEG_SIZE] = {0};  // Its more than actually get due to the header (created originaly for the RUDP_API).
+    char continuing_msg = 'C';
+
 
     // Enter a loop of receiving
-    while (1) {
-
-        // Creating buffer for receiving data:
-        char buffer[MAX_SEG_SIZE];  // Its more than actually get due to the header (created originaly for the RUDP_API).
+    while (1) { 
 
         // Sender address struct for returning value from rudp_recv:
         struct sockaddr_in sender_addr;
-
-        printf("Receiving MSG from Sender.\n");
+        if(continuing_msg == 'C'){
+            printf("Receiving DATA from Sender.\n");
+        }
 
         ssize_t total_received = 0;
         int sender_exited = 0;
@@ -79,12 +81,13 @@ int main(int argc, char* argv[]) {
                 return 1;
             }
             if(bytes_received == -2){
-                printf("Sender end communication._0\n");
+                printf("Sender end communication.\n\n");
                 sender_exited = 1;
                 break;
             }
             total_received += bytes_received;
-            // printf("total bytes: %zd ( this time: %zd)\n", total_received, bytes_received);
+            // ---- Debug print: ----
+            // printf("total bytes: %zd ( this time: %zd), first char: %c\n", total_received, bytes_received, buffer[0]);
         }
         if(sender_exited){ break; }
         
@@ -112,11 +115,12 @@ int main(int argc, char* argv[]) {
             return 1;
         }
         if(bytes_received == -2){  // Not suppose to happend.
-            printf("Sender end communication_1.\n");
+            printf("Sender end communication.\n\n");
             break;
         }
-        printf("con_msg_len: %zd , continuing byte: %d \n", bytes_received, (int)buffer[0]);
-        if(buffer[0] == 'E'){
+        continuing_msg = buffer[0];
+        printf("Continuing message: %c : ", continuing_msg);
+        if(continuing_msg == 'E'){
             printf("Sender sent exit message.\n");  // The next msg from sender will be FIN 
         }
     }
@@ -131,16 +135,16 @@ int main(int argc, char* argv[]) {
     double times_sum = 0;
     double speeds_sum = 0;
     for (int i=0; i<num_times; i++){
-        double speed = (3.0 * 1024 * 1024) / (time_taken_array[i] / 1000.0);  // Converting to seconds
+        double speed = ((FILE_SIZE)/(1024*1024)) / (time_taken_array[i] / 1000.0);  // Converting to seconds
         speeds_sum += speed;
-        printf("- Run #%d:    File Size: %d MB;    Time: %.*f ms;    Speed: %.*f MB/s\n", i, (FILE_SIZE)/(1024*1024), 2, time_taken_array[i], 2, speed);
+        printf("- Run #%d:    File Size: %.*f MB;    Time: %.*f ms;    Speed: %.*f MB/s\n", i, 2, (FILE_SIZE)/(1024.0*1024.0), 2, time_taken_array[i], 2, speed);
         times_sum += time_taken_array[i];
     }
 
     printf("- Average time: %.*f ms\n", 2, times_sum/num_times);
     printf("- Average bandwidth: %.*f MB/s\n", 2, speeds_sum/num_times);
     printf("----------------------------------------------------------------------------------------\n");
-    printf("Receiver end.\n");
+    printf("\nReceiver ends.\n");
 
     free(time_taken_array);
 

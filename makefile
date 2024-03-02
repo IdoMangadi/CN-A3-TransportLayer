@@ -12,15 +12,15 @@ TCP_Sender: TCP_Sender.c
 	gcc $(FLAGS) TCP_Sender.c -o TCP_Sender
 
 # Creating RUDP Receiver and Sender excutable files:
-RUDP_Receiver: RUDP_Receiver.o RUDP_API.o
-	gcc $(FLAGS) RUDP_Receiver.o RUDP_API.o -o RUDP_Receiver
+RUDP_Receiver: RUDP_Receiver.o RUDP.o
+	gcc $(FLAGS) RUDP_Receiver.o RUDP.o -o RUDP_Receiver
 
-RUDP_Sender: RUDP_Sender.o RUDP_API.o
-	gcc $(FLAGS) RUDP_Sender.o RUDP_API.o -o RUDP_Sender
+RUDP_Sender: RUDP_Sender.o RUDP.o
+	gcc $(FLAGS) RUDP_Sender.o RUDP.o -o RUDP_Sender
 
 #Creating OBJ files:
-RUDP_API.o: RUDP_API.c RUDP.h
-	gcc -c $(FLAGS) RUDP_API.c -o RUDP_API.o
+RUDP.o: RUDP.c RUDP.h
+	gcc -c $(FLAGS) RUDP.c -o RUDP.o
 
 RUDP_Receiver.o: RUDP_Receiver.c RUDP.h
 	gcc -c $(FLAGS) RUDP_Receiver.c -o RUDP_Receiver.o
