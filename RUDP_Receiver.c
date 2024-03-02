@@ -95,6 +95,8 @@ int main(int argc, char* argv[]) {
         // End of time measuring:
         gettimeofday(&end_time, NULL);
 
+        printf("File transfer completed. File size: %ld Bytes\n", total_received);
+
         // Times handling: (*1000.0): second -> milliseconds , (/1000.0): microseconds -> milliseconds
         double time_taken = (double)(end_time.tv_sec - start_time.tv_sec)*1000.0 + (double)(end_time.tv_usec - start_time.tv_usec) / 1000.0;
 

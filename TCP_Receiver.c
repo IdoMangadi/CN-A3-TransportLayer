@@ -11,6 +11,7 @@
 #include <netinet/tcp.h>
 
 #define BUFFER_SIZE 3 * 1024 * 1024
+#define MAX_SEG_SIZE 65536
 
 int arguments_error(){
     perror("Error occured whlie getting arguments");
@@ -92,7 +93,7 @@ int main(int argc, char* argv[]){
     // Receiving data from the sender:
     while(1){
 
-        char buffer[(BUFFER_SIZE)] = {0};
+        char buffer[MAX_SEG_SIZE] = {0};
 
         printf("Starting to receive file from Sender\n");
 
@@ -104,7 +105,7 @@ int main(int argc, char* argv[]){
         gettimeofday(&start_time, NULL);
 
         while(total_received < BUFFER_SIZE){
-            ssize_t bytes_received = recv(client_sock, buffer, (BUFFER_SIZE), 0);  
+            ssize_t bytes_received = recv(client_sock, buffer, MAX_SEG_SIZE, 0);  
             if( bytes_received < 0){
                 perror("Error occured whlie reading");
                 break;
